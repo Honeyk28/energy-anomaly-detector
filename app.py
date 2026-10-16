@@ -59,6 +59,7 @@ def check_user_active_status():
         user = get_user_by_id(int(user_id))
         if not user or not user.is_active:
             logout_user()
+            session.clear()
             if request.path.startswith('/api/'):
                 return jsonify({'error': 'Access has been disabled. Contact an administrator.'}), 401
             return render_template('login.html', error='Access has been disabled. Contact an administrator.'), 401

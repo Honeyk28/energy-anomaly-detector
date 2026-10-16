@@ -28,24 +28,30 @@ class AnalyticsEngine:
         self.total_rows = len(self.raw_df)
         self.zero_rows = int((self.raw_df['kwh'] == 0).sum())
         
-        # Valid readings: kwh > 0
+        # Valid readings: kwh > 0 (zero readings represent outages / non-reporting days)
         valid_df = self.raw_df[self.raw_df['kwh'] > 0].copy()
         valid_df['date'] = valid_df['date'].astype(str).str.strip()
         valid_df['meter'] = valid_df['meter'].astype(str).str.strip()
         
-        # Unique meters sorted
-        self.meters = sorted(valid_df['meter'].unique().tolist())
+        # Dynamically determine all meters in Area X study group
+        self.meters = sorted(valid_df['meter'].dropna().unique().tolist())
         self.num_houses = len(self.meters)
         self.meter_to_idx = {m: i for i, m in enumerate(self.meters)}
         
-        # Calendar date range
+        # Determine continuous calendar date range
         min_date = valid_df['date'].min()
         max_date = valid_df['date'].max()
         self.all_dates = pd.date_range(min_date, max_date, freq='D').strftime('%Y-%m-%d').tolist()
         self.total_days = len(self.all_dates)
         self.date_to_idx = {d: i for i, d in enumerate(self.all_dates)}
         
-        # 2D values array: shape (total_days, num_houses)
+        # Total possible meter-days across study group
+        self.total_possible_meter_days = self.num_houses * self.total_days
+        self.valid_readings_count = len(valid_df)
+        self.missing_readings_count = self.total_possible_meter_days - self.valid_readings_count
+        self.missing_pct = (self.missing_readings_count / self.total_possible_meter_days) * 100.0
+        
+        # 2D values array: shape (total_days, num_houses). Missing and zero values are stored as NaN.
         self.vals = np.full((self.total_days, self.num_houses), np.nan)
         for _, row in valid_df.iterrows():
             d = row['date']
@@ -58,7 +64,10 @@ class AnalyticsEngine:
         self.expected_trailing = self._compute_trailing_median()
 
     def _compute_centered_median(self):
-        """Centered 29-day median: [d-14, d+14] excluding day d, require >= 5 valid readings"""
+        """
+        Centered 29-day median: [d-14, d+14] excluding day d.
+        Retrospective analysis baseline. Requires at least 5 valid observations.
+        """
         N, M = self.vals.shape
         exp = np.full_like(self.vals, np.nan)
         for i in range(N):
@@ -74,7 +83,11 @@ class AnalyticsEngine:
         return exp
 
     def _compute_trailing_median(self):
-        """Trailing 28-day median: [d-28, d-1], require >= 5 valid readings"""
+        """
+        Trailing 28-day median: [d-28, d-1] strictly before day d.
+        Prospective / real-time baseline with no future data leakage.
+        Requires at least 5 valid observations.
+        """
         N, M = self.vals.shape
         exp = np.full_like(self.vals, np.nan)
         for i in range(N):
@@ -105,6 +118,7 @@ class AnalyticsEngine:
         comparable_count = np.zeros(N, dtype=int)
         
         for i in range(N):
+            # Sum actual and expected over the EXACT same comparable houses
             mask = (~np.isnan(self.vals[i, :])) & (~np.isnan(exp[i, :]))
             cnt = int(np.sum(mask))
             comparable_count[i] = cnt
@@ -114,9 +128,14 @@ class AnalyticsEngine:
         
         increase = actual_total - expected_total
         pct = np.zeros(N)
-        valid_exp = expected_total > 0
-        pct[valid_exp] = increase[valid_exp] / expected_total[valid_exp]
+        # Skip dates with fewer than 15 comparable houses
         low_coverage = comparable_count < 15
+
+        for i in range(N):
+            if not low_coverage[i] and expected_total[i] > 1e-6:
+                pct[i] = increase[i] / expected_total[i]
+            else:
+                pct[i] = 0.0
 
         res = {
             'actual_total': actual_total,
@@ -134,16 +153,18 @@ class AnalyticsEngine:
     def detect(self, model="Isolation Forest", threshold=None, baseline="Centered 29-day median",
                train_from=None, train_to=None, from_date=None, to_date=None):
         
-        # Set defaults
-        model_name = "Robust z-score (MAD)" if "robust" in str(model).lower() or "z-score" in str(model).lower() or "mad" in str(model).lower() else "Isolation Forest"
+        # Standardize model name
+        is_mad = ("robust" in str(model).lower() or "z-score" in str(model).lower() or "mad" in str(model).lower())
+        model_name = "Robust z-score (MAD)" if is_mad else "Isolation Forest"
         
+        # Default thresholds
         if threshold is None or threshold == '' or threshold == '[threshold]':
-            threshold = 3.5 if model_name == "Robust z-score (MAD)" else 2.0
+            threshold = 3.5 if is_mad else 2.0
         else:
             try:
                 threshold = float(threshold)
             except (ValueError, TypeError):
-                threshold = 3.5 if model_name == "Robust z-score (MAD)" else 2.0
+                threshold = 3.5 if is_mad else 2.0
 
         if not train_from or train_from not in self.date_to_idx:
             train_from = self.all_dates[0]
@@ -172,54 +193,75 @@ class AnalyticsEngine:
         if train_s > train_e:
             train_s, train_e = train_e, train_s
 
-        # Training indices: in window and not low_coverage
+        # Training indices: strictly within training range and excluding low coverage days
         train_indices = [i for i in range(train_s, train_e + 1) if not low_coverage[i]]
 
         N = self.total_days
         flagged = np.zeros(N, dtype=bool)
         scores = np.zeros(N)
 
-        if len(train_indices) >= 10:
+        if len(train_indices) >= 5:
             train_r = pct[train_indices]
             train_inc = increase[train_indices]
+            
+            # Filter non-finite values safely
+            valid_train_mask = np.isfinite(train_r) & np.isfinite(train_inc)
+            clean_train_r = train_r[valid_train_mask]
+            clean_train_inc = train_inc[valid_train_mask]
 
             if model_name == "Robust z-score (MAD)":
-                med_r = float(np.median(train_r))
-                mad_r = float(np.median(np.abs(train_r - med_r)))
-                scale = 1.4826 * mad_r if mad_r > 1e-8 else 1.0
+                if len(clean_train_r) >= 5:
+                    med_r = float(np.median(clean_train_r))
+                    mad_r = float(np.median(np.abs(clean_train_r - med_r)))
 
-                for i in range(N):
-                    if not low_coverage[i]:
-                        z = (pct[i] - med_r) / scale
-                        # Score mapped to 0..1 range with 0.8 around threshold
-                        s = 1.0 / (1.0 + np.exp(-(z - threshold)))
-                        scores[i] = round(float(s), 2)
-                        if z > threshold and pct[i] > 0:
-                            flagged[i] = True
+                    # Handle MAD = 0 safely and explicitly without arbitrary substitution
+                    if mad_r <= 1e-12 or not np.isfinite(mad_r):
+                        # Zero spread in training population
+                        for i in range(N):
+                            if not low_coverage[i] and np.isfinite(pct[i]):
+                                if pct[i] > med_r and increase[i] > 0:
+                                    scores[i] = 1.0
+                                    flagged[i] = True
+                                else:
+                                    scores[i] = 0.0
+                    else:
+                        scale = 1.4826 * mad_r
+                        for i in range(N):
+                            if not low_coverage[i] and np.isfinite(pct[i]):
+                                z = (pct[i] - med_r) / scale
+                                # Normalized ranking score mapped via logistic sigmoid around threshold
+                                s = 1.0 / (1.0 + np.exp(-(z - threshold)))
+                                scores[i] = round(float(np.clip(s, 0.0, 1.0)), 2)
+                                # Flag only sufficiently large positive deviations exceeding expected consumption
+                                if z > threshold and pct[i] > 0 and increase[i] > 0:
+                                    flagged[i] = True
             else:
                 # Isolation Forest
+                # Contamination percentage clamped safely
                 contamination = max(0.001, min(0.5, threshold / 100.0))
-                X_train = np.column_stack([train_r, train_inc])
+                X_train = np.column_stack([clean_train_r, clean_train_inc])
+                
                 clf = IsolationForest(contamination=contamination, random_state=42)
                 clf.fit(X_train)
 
-                # Score all valid dates
-                valid_all = [i for i in range(N) if not low_coverage[i]]
+                # Score all valid non-low-coverage dates
+                valid_all = [i for i in range(N) if not low_coverage[i] and np.isfinite(pct[i]) and np.isfinite(increase[i])]
                 if valid_all:
                     X_all = np.column_stack([pct[valid_all], increase[valid_all]])
                     preds = clf.predict(X_all)
-                    # Decision function is negative for outliers; lower = more anomalous
                     dec = clf.decision_function(X_all)
-                    # Convert to anomaly score between 0 and 1
-                    # min dec -> highest anomaly score
-                    min_d = dec.min()
-                    max_d = dec.max()
+                    
+                    # Convert decision function to normalized ranking score from 0.0 to 1.0
+                    # (min decision function is most anomalous -> score 1.0)
+                    min_d = float(dec.min())
+                    max_d = float(dec.max())
                     rng = max_d - min_d if (max_d - min_d) > 1e-6 else 1.0
                     norm_scores = 1.0 - (dec - min_d) / rng
 
                     for idx, i in enumerate(valid_all):
-                        scores[i] = round(float(norm_scores[idx]), 2)
-                        if preds[idx] == -1 and pct[i] > 0:
+                        scores[i] = round(float(np.clip(norm_scores[idx], 0.0, 1.0)), 2)
+                        # Only flag high-consumption anomaly when predicted outlier and actual > expected
+                        if preds[idx] == -1 and pct[i] > 0 and increase[i] > 0:
                             flagged[i] = True
 
         # View slice from from_date to to_date
@@ -253,7 +295,7 @@ class AnalyticsEngine:
                     'score': float(scores[i])
                 })
 
-        # Sort anomalies by score descending
+        # Sort anomalies by score descending, then increase
         anomalies.sort(key=lambda x: (x['score'], x['increase']), reverse=True)
 
         scanned_count = (disp_e - disp_s + 1)
@@ -275,7 +317,6 @@ class AnalyticsEngine:
 
     def get_households(self, date, baseline="Centered 29-day median", rank_by="excess", top="all"):
         if date not in self.date_to_idx:
-            # Fallback to first date or an anomaly date
             date = self.all_dates[0]
 
         d_idx = self.date_to_idx[date]
@@ -284,16 +325,18 @@ class AnalyticsEngine:
         mask = (~np.isnan(self.vals[d_idx, :])) & (~np.isnan(exp[d_idx, :]))
         comp_indices = np.where(mask)[0]
 
-        rows = []
-        pos_excess_sum = 0.0
-        
         items = []
+        pos_excess_sum = 0.0
+        neg_dev_sum = 0.0
+
         for m_idx in comp_indices:
             act = float(self.vals[d_idx, m_idx])
             expected = float(exp[d_idx, m_idx])
             excess = act - expected
             if excess > 0:
                 pos_excess_sum += excess
+            else:
+                neg_dev_sum += excess
             items.append({
                 'meter': self.meters[m_idx],
                 'actual': act,
@@ -301,30 +344,23 @@ class AnalyticsEngine:
                 'excess': excess
             })
 
-        # Calculate share
+        # Calculate contribution share as positive excess divided by total positive household excess
         for item in items:
             exc = item['excess']
             if pos_excess_sum > 0 and exc > 0:
-                share = (exc / pos_excess_sum) * 100.0
+                item['share'] = (exc / pos_excess_sum) * 100.0
             else:
-                share = 0.0
-            item['share'] = share
+                item['share'] = 0.0
 
-        # Sort
+        # Sort houses by excess or share descending (positive excess ranked first)
         if rank_by == 'share':
             items.sort(key=lambda x: x['share'], reverse=True)
         else:
             items.sort(key=lambda x: x['excess'], reverse=True)
 
-        # Reconcile rounding so sum(excess) equals target increase exactly
-        aggs = self.compute_daily_aggregates(baseline)
-        target_increase = round(float(aggs['increase'][d_idx]), 2)
-        excess_sum = round(sum(round(item['excess'], 2) for item in items), 2)
-        diff = round(target_increase - excess_sum, 2)
-        if abs(diff) > 0 and len(items) > 0:
-            items[0]['excess'] = items[0]['excess'] + diff
-
-        # Apply rank and format
+        # Do NOT force or alter items[0]['excess']!
+        # Report honest actual minus expected for each household.
+        rows = []
         for idx, item in enumerate(items, start=1):
             rows.append({
                 'rank': idx,
@@ -344,6 +380,40 @@ class AnalyticsEngine:
             rows = rows[:20]
 
         return rows
+
+    def get_attribution_reconciliation(self, date, baseline="Centered 29-day median"):
+        """
+        Reconciles household excess with area-level net increase.
+        Explains that net area increase = positive excess sum + negative deviation sum.
+        """
+        if date not in self.date_to_idx:
+            date = self.all_dates[0]
+
+        d_idx = self.date_to_idx[date]
+        exp, _ = self.get_baseline_matrix(baseline)
+        mask = (~np.isnan(self.vals[d_idx, :])) & (~np.isnan(exp[d_idx, :]))
+        comp_indices = np.where(mask)[0]
+
+        pos_excess = 0.0
+        neg_dev = 0.0
+        for m_idx in comp_indices:
+            e = float(self.vals[d_idx, m_idx]) - float(exp[d_idx, m_idx])
+            if e > 0:
+                pos_excess += e
+            else:
+                neg_dev += e
+
+        aggs = self.compute_daily_aggregates(baseline)
+        net_increase = float(aggs['increase'][d_idx])
+
+        return {
+            'date': date,
+            'comparable_houses': len(comp_indices),
+            'net_area_increase': round(net_increase, 2),
+            'positive_excess_sum': round(pos_excess, 2),
+            'negative_deviation_sum': round(neg_dev, 2),
+            'reconciled': abs((pos_excess + neg_dev) - net_increase) < 1e-4
+        }
 
     def get_house_history(self, meter, date, baseline="Centered 29-day median"):
         """Get actual vs expected for date - 15 .. + 15 days for specified house"""
@@ -387,8 +457,6 @@ class AnalyticsEngine:
         det = self.detect()
         aggs = self.compute_daily_aggregates()
 
-        missing_pct = 1.0 - (self.total_rows / (self.num_houses * self.total_days))
-
         anomalies = det['anomalies']
         top_anomaly_date = anomalies[0]['date'] if anomalies else self.all_dates[0]
         top_anomaly = anomalies[0] if anomalies else None
@@ -399,7 +467,7 @@ class AnalyticsEngine:
             'houses': self.num_houses,
             'period_start': self.all_dates[0],
             'period_end': self.all_dates[-1],
-            'missing_pct': round(missing_pct * 100, 1),
+            'missing_pct': round(self.missing_pct, 1),
             'anomalies_flagged': len(anomalies)
         }
 
@@ -412,8 +480,6 @@ class AnalyticsEngine:
         }
 
     def get_method_stats(self):
-        missing_pct = 1.0 - (self.total_rows / (self.num_houses * self.total_days))
-        
         per_meter = []
         for m in self.meters:
             m_idx = self.meter_to_idx[m]
@@ -442,7 +508,7 @@ class AnalyticsEngine:
             'reading_interval': 'Daily',
             'period': f"{self.all_dates[0]} to {self.all_dates[-1]}",
             'zero_count': self.zero_rows,
-            'missing_pct': round(missing_pct * 100, 1),
+            'missing_pct': round(self.missing_pct, 1),
             'source': 'CEEW smart meter data, doi:10.7910/DVN/GOCHJH, CC0'
         }
 

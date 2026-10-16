@@ -207,7 +207,7 @@
       <select id="hh-top-n">
         <option value="10" selected>Top 10 houses</option>
         <option value="20">Top 20 houses</option>
-        <option value="all">All 38 houses</option>
+        <option value="all">All comparable houses</option>
       </select>
     </div>
     <button class="btn" id="hh-update-btn">Update</button>
@@ -232,7 +232,7 @@
   </section>
 
   <section class="panel">
-    <div class="ph"><span>All ranked houses</span><small>Excess = actual minus expected</small></div>
+    <div class="ph"><span>All ranked houses</span><small>Excess = actual minus expected. Share is % of total positive excess.</small></div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:640px" id="hh-table">
         <thead>
@@ -335,7 +335,7 @@
   </section>
 
   <section class="panel">
-    <div class="ph"><span>Data coverage by house</span><small>All 38 meters in Area X</small></div>
+    <div class="ph"><span>Data coverage by house</span><small id="cov-header-sub">All meters in Area X</small></div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:640px" id="coverage-table">
         <thead>
