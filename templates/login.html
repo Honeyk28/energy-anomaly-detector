@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in - AI Energy Consumption Anomaly Detector</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div style="min-height:100vh;display:flex;flex-direction:column">
+  <header style="background:#1F3A5F">
+    <div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+    </div>
+  </header>
+
+  <main style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px">
+    <div class="panel" style="width:100%;max-width:400px;padding:32px">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:600">Sign in</h1>
+      <p style="margin:0 0 24px;font-size:14px;color:#5A6575">Enter your credentials to access Area X analytics.</p>
+
+      {% if error %}
+      <div id="login-error" class="err" style="margin-bottom:18px;padding:10px 14px;background:#FDF2F1;border:1px solid #F5C6CB;border-radius:2px">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="/login" style="display:flex;flex-direction:column;gap:18px">
+        <div class="fld">
+          <label class="lab" for="username">Username</label>
+          <input type="text" id="username" name="username" required autofocus value="{{ username or '' }}" autocomplete="username">
+        </div>
+        <div class="fld">
+          <label class="lab" for="password">Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn" style="width:100%;margin-top:8px">Sign in</button>
+      </form>
+
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid #E6E9EE;font-size:12.5px;color:#5A6575;line-height:1.5">
+        Authorized research & demonstration access only.<br>Default accounts: <code>member1</code>, <code>member2</code>, <code>member3</code> (Admin), <code>demo</code> (Viewer).
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

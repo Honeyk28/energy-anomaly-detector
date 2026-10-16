@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Energy Consumption Anomaly Detector</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div style="font-family:'Public Sans',sans-serif;color:#1B2430;min-height:100vh">
+<header style="background:#1F3A5F">
+  <div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:16px">
+      <nav class="nav" id="main-nav">
+        <a href="#overview" data-go="overview" class="on">Overview</a>
+        <a href="#detection" data-go="detection">Detection</a>
+        <a href="#households" data-go="households">Households</a>
+        <a href="#method" data-go="method">Method</a>
+        {% if current_user.is_admin %}
+        <a href="#access" data-go="access" id="nav-access">Access</a>
+        {% endif %}
+      </nav>
+      <div style="display:flex;align-items:center;margin-left:20px;padding-left:20px;border-left:1px solid rgba(255,255,255,0.2);font-size:13.5px;color:#D6DEE9;gap:12px">
+        <span><strong style="color:#fff">{{ current_user.display_name }}</strong> <small style="opacity:0.8">({{ current_user.role }})</small></span>
+        <a href="/logout" style="color:#D6DEE9;padding:4px 8px;border:1px solid rgba(255,255,255,0.25);border-radius:2px;font-size:12px">Sign out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main style="max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px">
+
+<!-- PAGE 1: OVERVIEW -->
+<section class="pg" id="pg-overview">
+  <section id="overview-header">
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Area X: consumption review</h1>
+    <p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">A constructed study group of residential smart-meter households. Daily consumption is summed to an area total, compared with its historical pattern, and any excess is attributed to individual houses.</p>
+  </section>
+
+  <section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+    <div class="fld"><label class="lab" for="ov-ds">Dataset</label><select id="ov-ds"><option>CEEW Smart Meter Data (Mathura, Bareilly)</option></select></div>
+    <div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="ov-hs">Houses in Area X</label><input id="ov-hs" value="38" readonly></div>
+    <div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="ov-iv">Interval</label><select id="ov-iv"><option>Daily</option></select></div>
+    <div class="fld"><label class="lab" for="ov-dt">Date to inspect</label><select id="ov-dt"></select></div>
+    <button class="btn" id="ov-run-btn">Run detection</button>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px">
+    <div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Houses</div><div id="kpi-houses" style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace">38</div></div>
+    <div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Period covered</div><div id="kpi-period" style="font-size:17px;margin-top:10px;font-family:'IBM Plex Mono',monospace">2019-05-01 to 2021-02-20</div></div>
+    <div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Missing readings</div><div id="kpi-missing" style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace">34.4 %</div></div>
+    <div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Anomalies flagged</div><div id="kpi-anomalies" style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace;color:#A63D2F">--</div></div>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+    <div class="panel" style="flex:2;min-width:420px">
+      <div class="ph"><span>Area X Total, daily consumption, actual against expected</span></div>
+      <div style="padding:16px 20px 8px">
+        <div id="ov-chart-container" style="min-height:290px"></div>
+        <div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap">
+          <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span>
+          <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected (historical pattern)</span>
+          <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#A63D2F"/></svg> Flagged anomaly</span>
+          <span><svg width="14" height="10" aria-hidden="true"><rect width="14" height="10" fill="#E6E9EE"/></svg> Low coverage (&lt;15 houses)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1;min-width:300px">
+      <div class="ph"><span>Selected anomaly</span></div>
+      <div style="padding:4px 20px 16px" id="ov-selected-panel">
+        <div class="kv"><span>Date</span><span id="ov-sel-date">--</span></div>
+        <div class="kv"><span>Actual total</span><span id="ov-sel-actual">-- kWh</span></div>
+        <div class="kv"><span>Expected total</span><span id="ov-sel-expected">-- kWh</span></div>
+        <div class="kv"><span>Increase</span><span id="ov-sel-increase" style="color:#A63D2F">--</span></div>
+        <div class="kv"><span>Anomaly score</span><span id="ov-sel-score">--</span></div>
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E6E9EE;text-align:right">
+          <a href="#households" id="ov-view-hh-link" style="font-size:13.5px;font-weight:600">Open on Households page &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><span>Estimated excess consumption by house</span><small id="ov-top-houses-date">Selected date</small></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:640px" id="ov-top-houses-table">
+        <thead><tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr></thead>
+        <tbody>
+          <tr><td colspan="6" style="text-align:center;color:#5A6575">Loading house attribution...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" style="padding:18px 20px;font-size:13.5px;line-height:1.6;color:#44505F">
+    <strong style="color:#1B2430;font-weight:600">Notes on interpretation.</strong> Excess consumption is actual minus expected usage for each house. It is a statistical attribution from observed readings and does not establish the cause of an anomaly. Area X is a constructed study group of meters from the source dataset and does not represent a real neighbourhood or feeder. Source: CEEW, Harvard Dataverse, doi:10.7910/DVN/GOCHJH (CC0).
+  </section>
+</section>
+
+<!-- PAGE 2: DETECTION -->
+<section class="pg" id="pg-detection" hidden>
+  <section>
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Anomaly detection</h1>
+    <p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">Compare the Area X daily total with its historical pattern and flag unusually high intervals.</p>
+  </section>
+
+  <section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+    <div class="fld">
+      <label class="lab" for="det-model">Detection model</label>
+      <select id="det-model">
+        <option value="Isolation Forest" selected>Isolation Forest</option>
+        <option value="Robust z-score (MAD)">Robust z-score (MAD)</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label class="lab" for="det-baseline">Baseline</label>
+      <select id="det-baseline">
+        <option value="Centered 29-day median" selected>Centered 29-day median</option>
+        <option value="Trailing 28-day median">Trailing 28-day median</option>
+      </select>
+    </div>
+    <div class="fld" style="max-width:200px;min-width:140px">
+      <label class="lab" for="det-threshold" id="det-thresh-label">Contamination (%)</label>
+      <input id="det-threshold" value="2.0">
+    </div>
+    <div class="fld" style="max-width:280px;min-width:200px">
+      <label class="lab">Training window</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="date" id="det-train-from" value="2019-05-01" style="padding:0 8px;font-size:13px">
+        <span style="font-size:12px;color:#5A6575">to</span>
+        <input type="date" id="det-train-to" value="2021-02-20" style="padding:0 8px;font-size:13px">
+      </div>
+    </div>
+    <button class="btn" id="det-run-btn">Run detection</button>
+  </section>
+
+  <section class="panel">
+    <div class="ph">
+      <span>Area X Total, daily view</span>
+      <div style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:normal;color:#5A6575">
+        <span>Range:</span>
+        <input type="date" id="det-view-from" value="2019-05-01" style="height:30px;padding:0 6px;border:1px solid #B8C0CB;border-radius:2px;font-size:12px">
+        <span>to</span>
+        <input type="date" id="det-view-to" value="2021-02-20" style="height:30px;padding:0 6px;border:1px solid #B8C0CB;border-radius:2px;font-size:12px">
+        <button class="btn sm secondary" id="det-apply-range-btn">Filter view</button>
+      </div>
+    </div>
+    <div style="padding:16px 20px 8px">
+      <div id="det-chart-container" style="min-height:305px"></div>
+      <div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap">
+        <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span>
+        <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected</span>
+        <span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#A63D2F"/></svg> Flagged anomaly</span>
+        <span><svg width="14" height="10" aria-hidden="true"><rect width="14" height="10" fill="#E6E9EE"/></svg> Low coverage</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+    <div class="panel" style="flex:2;min-width:420px">
+      <div class="ph"><span>Flagged intervals</span><small id="det-flagged-count">0 flagged</small></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:680px" id="det-table">
+          <thead>
+            <tr><th>#</th><th>Date</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Increase (kWh)</th><th class="n">Score</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" style="text-align:center;color:#5A6575">Running detection...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1;min-width:300px">
+      <div class="ph"><span>Detection summary</span></div>
+      <div style="padding:4px 20px 12px">
+        <div class="kv"><span>Model</span><span id="det-sum-model">Isolation Forest</span></div>
+        <div class="kv"><span>Days scanned</span><span id="det-sum-scanned">--</span></div>
+        <div class="kv"><span>Flagged</span><span id="det-sum-flagged" style="color:#A63D2F">--</span></div>
+        <div class="kv"><span>Threshold</span><span id="det-sum-threshold">--</span></div>
+        <div class="kv"><span>Low coverage days</span><span id="det-sum-lowcov">--</span></div>
+        <div class="kv"><span>Labels used</span><span>None</span></div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- PAGE 3: HOUSEHOLDS -->
+<section class="pg" id="pg-households" hidden>
+  <section>
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Household contribution</h1>
+    <p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">Rank houses by estimated excess consumption at a flagged interval.</p>
+  </section>
+
+  <section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+    <div class="fld"><label class="lab" for="hh-anomaly-select">Anomaly date</label><select id="hh-anomaly-select"></select></div>
+    <div class="fld"><label class="lab" for="hh-rank-by">Rank by</label>
+      <select id="hh-rank-by">
+        <option value="excess" selected>Excess consumption (kWh)</option>
+        <option value="share">Share of excess (%)</option>
+      </select>
+    </div>
+    <div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="hh-top-n">Show</label>
+      <select id="hh-top-n">
+        <option value="10" selected>Top 10 houses</option>
+        <option value="20">Top 20 houses</option>
+        <option value="all">All 38 houses</option>
+      </select>
+    </div>
+    <button class="btn" id="hh-update-btn">Update</button>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+    <div class="panel" style="flex:1;min-width:380px">
+      <div class="ph"><span>Estimated excess, top 10 houses (kWh)</span><small id="hh-bar-sub">Click a bar to view house</small></div>
+      <div style="padding:16px 20px" id="hh-bar-chart-container"></div>
+    </div>
+
+    <div class="panel" style="flex:1;min-width:380px">
+      <div class="ph"><span id="hh-selected-house-title">Selected house: rank 1</span></div>
+      <div style="padding:16px 20px 4px">
+        <div id="hh-house-chart-container" style="min-height:175px"></div>
+        <div class="kv"><span>Meter ID</span><span id="hh-sel-meter">--</span></div>
+        <div class="kv"><span>Actual at flagged date</span><span id="hh-sel-actual">-- kWh</span></div>
+        <div class="kv"><span>Expected at flagged date</span><span id="hh-sel-expected">-- kWh</span></div>
+        <div class="kv"><span>Baseline source</span><span>Own history (&plusmn;14 days median)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><span>All ranked houses</span><small>Excess = actual minus expected</small></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:640px" id="hh-table">
+        <thead>
+          <tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="6" style="text-align:center;color:#5A6575">Loading house ranks...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+
+<!-- PAGE 4: METHOD -->
+<section class="pg" id="pg-method" hidden>
+  <section>
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Method and data notes</h1>
+    <p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">How the dataset is prepared, how the model works and what the results do and do not show.</p>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+    <div class="panel" style="flex:3;min-width:420px">
+      <div class="ph"><span>Pipeline</span></div>
+      <ol style="list-style:none;margin:0;padding:0 20px">
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">01</span>
+          <span><strong style="font-weight:600">Prepare data</strong><br><span class="note">Load household time series, verify daily units (t_kWh) and dates, exclude zero readings from totals/baselines, and establish the 38-meter study group.</span></span>
+        </li>
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">02</span>
+          <span><strong style="font-weight:600">Standardise intervals</strong><br><span class="note">Daily resolution. Ensure daily energy is consumed that day (not cumulative). Zero readings are flagged as non-reporting days.</span></span>
+        </li>
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">03</span>
+          <span><strong style="font-weight:600">Calculate area consumption &amp; baseline</strong><br><span class="note">Calculate house expected from median historical patterns. For each date, sum only comparable houses (both reading &amp; valid expected) to obtain actual and expected area totals.</span></span>
+        </li>
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">04</span>
+          <span><strong style="font-weight:600">Detect anomalies</strong><br><span class="note">Evaluate relative percentage increase and absolute increase via unsupervised models (Isolation Forest or Robust z-score MAD). Flag unusually HIGH spikes only.</span></span>
+        </li>
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">05</span>
+          <span><strong style="font-weight:600">Identify contributors</strong><br><span class="note">Compute excess = actual minus expected for each comparable house. Rank descending and calculate percentage share of total excess.</span></span>
+        </li>
+        <li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">06</span>
+          <span><strong style="font-weight:600">Report results</strong><br><span class="note">Present the date, actual vs expected totals, increase kWh, and the leading households driving the excess.</span></span>
+        </li>
+      </ol>
+    </div>
+
+    <div style="flex:2;min-width:320px;display:flex;flex-direction:column;gap:20px">
+      <div class="panel">
+        <div class="ph"><span>Dataset</span></div>
+        <div style="padding:4px 20px 12px">
+          <div class="kv"><span>Title</span><span>CEEW Smart Meter Data</span></div>
+          <div class="kv"><span>Region</span><span>Mathura, Bareilly</span></div>
+          <div class="kv"><span>Reading interval</span><span>Daily</span></div>
+          <div class="kv"><span>Energy column</span><span>t_kWh</span></div>
+          <div class="kv"><span>Houses in Area X</span><span id="m-houses">38</span></div>
+          <div class="kv"><span>Total rows</span><span id="m-rows">16,491</span></div>
+          <div class="kv"><span>Period covered</span><span id="m-period">2019-05-01 to 2021-02-20</span></div>
+          <div class="kv"><span>Zero readings</span><span id="m-zeros">143</span></div>
+          <div class="kv"><span>Missing readings</span><span id="m-missing">34.4 %</span></div>
+          <div class="kv"><span>Licence</span><span>CC0</span></div>
+          <div class="kv"><span>DOI</span><span>10.7910/DVN/GOCHJH</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><span>Unit handling</span></div>
+        <div style="padding:0 20px 8px">
+          <div class="kv" style="flex-direction:column;gap:4px">
+            <span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Daily energy (t_kWh)</span>
+            <span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Energy consumed that day in kWh. Zero readings represent outages/missing days and are excluded from baselines.</span>
+          </div>
+          <div class="kv" style="flex-direction:column;gap:4px">
+            <span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Cumulative meter reading</span>
+            <span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Take differences between consecutive readings. Handle resets and negative differences.</span>
+          </div>
+          <div class="kv" style="flex-direction:column;gap:4px">
+            <span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Instantaneous power (kW)</span>
+            <span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Do not sum as energy. Convert using the sampling interval.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="padding:18px 20px">
+    <strong style="font-weight:600">Limitations.</strong>
+    <ul class="note" style="margin:8px 0 0;padding-left:20px">
+      <li>Area X has only the houses in the file (fewer than 50 meters, specifically 38 meters) and does not represent a full utility feeder or real neighborhood.</li>
+      <li>Daily resolution only (no intra-day or hourly detection).</li>
+      <li>Many missing days per house (each meter has only ~195 to 624 days of data). Raw daily sums must never be compared across days without comparable filtering.</li>
+      <li>Zero readings are treated as non-reporting or possible power outage days, not genuine zero consumption.</li>
+      <li>No ground-truth labels exist, so accuracy metrics cannot be computed.</li>
+      <li>Household excess is a statistical attribution from observed readings and does not prove the cause of an anomaly. The model does not claim to detect theft or faulty equipment.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><span>Data coverage by house</span><small>All 38 meters in Area X</small></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:640px" id="coverage-table">
+        <thead>
+          <tr><th>Meter ID</th><th>First Date</th><th>Last Date</th><th class="n">Days with Data</th><th class="n">Coverage (%)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5" style="text-align:center;color:#5A6575">Loading coverage statistics...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+
+<!-- PAGE 5: ACCESS (ADMIN ONLY) -->
+{% if current_user.is_admin %}
+<section class="pg" id="pg-access" hidden>
+  <section>
+    <h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Access and user management</h1>
+    <p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">Manage research accounts, role assignments, and audit authentication activity.</p>
+  </section>
+
+  <div id="access-msg" style="display:none;padding:10px 14px;border-radius:2px;font-size:13.5px"></div>
+
+  <section class="panel">
+    <div class="ph"><span>Users</span><small>Manage team members and demo accounts</small></div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:760px" id="users-table">
+        <thead>
+          <tr>
+            <th>Display Name</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Sign-In</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="6" style="text-align:center;color:#5A6575">Loading users...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+    <div class="panel" style="flex:1;min-width:320px;padding:20px">
+      <h2 style="margin:0 0 16px;font-size:16px;font-weight:600">Add user</h2>
+      <form id="add-user-form" style="display:flex;flex-direction:column;gap:14px">
+        <div class="fld"><label class="lab" for="new-display-name">Display Name</label><input type="text" id="new-display-name" required placeholder="e.g. Alice Smith"></div>
+        <div class="fld"><label class="lab" for="new-username">Username</label><input type="text" id="new-username" required placeholder="e.g. member4"></div>
+        <div class="fld"><label class="lab" for="new-role">Role</label>
+          <select id="new-role">
+            <option value="viewer" selected>Viewer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="fld"><label class="lab" for="new-password">Password</label><input type="password" id="new-password" required placeholder="Initial password"></div>
+        <button type="submit" class="btn" style="margin-top:8px">Create user</button>
+      </form>
+    </div>
+
+    <div class="panel" style="flex:2;min-width:420px">
+      <div class="ph"><span>Recent sign-ins</span><small>Audit log (last 20)</small></div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:500px" id="logins-table">
+          <thead>
+            <tr><th>Username</th><th>Outcome</th><th>Timestamp (UTC)</th><th>IP Address</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4" style="text-align:center;color:#5A6575">Loading sign-in history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</section>
+{% endif %}
+
+</main>
+</div>
+
+<script>
+window.CURRENT_USER_ID = {{ current_user.id }};
+window.CURRENT_USER_IS_ADMIN = {{ 'true' if current_user.is_admin else 'false' }};
+</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

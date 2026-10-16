@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Energy Consumption Anomaly Detector</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0;background:#F3F4F6}
+a{color:#1F3A5F;text-decoration:none}a:hover{text-decoration:underline}
+.nav a{color:#D6DEE9;font-size:14px;padding:6px 0;margin-left:28px;border-bottom:2px solid transparent}.nav a:hover{color:#fff;text-decoration:none}.nav a.on{color:#fff;border-bottom-color:#fff}
+.panel{background:#fff;border:1px solid #D3D8DF;border-radius:2px}
+.ph{padding:14px 20px;border-bottom:1px solid #D3D8DF;font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ph small{font-size:12px;font-weight:400;color:#5A6575}
+.lab{font-size:12px;color:#5A6575;letter-spacing:.04em;text-transform:uppercase}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:170px;flex:1}
+.fld select,.fld input{height:44px;box-sizing:border-box;border:1px solid #B8C0CB;border-radius:2px;padding:0 12px;font:15px 'Public Sans',sans-serif;color:#1B2430;background:#fff}
+.btn{height:44px;padding:0 28px;background:#1F3A5F;color:#fff;border:0;border-radius:2px;font:500 15px 'Public Sans',sans-serif;cursor:pointer}
+th{text-align:left;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#5A6575;font-weight:500;padding:10px 20px;border-bottom:1px solid #D3D8DF;background:#F7F8FA}
+td{padding:12px 20px;font-size:14px;border-bottom:1px solid #E6E9EE}
+tr:last-child td{border-bottom:0}
+.n{font-family:'IBM Plex Mono',monospace;text-align:right}th.n{text-align:right}
+.kv{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid #E6E9EE;font-size:14px}
+.kv:last-child{border-bottom:0}.kv span:last-child{font-family:'IBM Plex Mono',monospace;text-align:right}
+.tag{font-size:12px;border:1px solid #A63D2F;color:#A63D2F;padding:2px 8px;border-radius:2px}
+.note{font-size:14px;line-height:1.6;color:#44505F}
+.pg[hidden]{display:none}
+</style>
+</head>
+<body>
+<section class="pg" id="pg-overview" hidden>
+
+<div style="font-family:'Public Sans',sans-serif;color:#1B2430;min-height:100vh">
+<header style="background:#1F3A5F">
+<div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+<nav class="nav"><a href="#overview" data-go="overview" class="on">Overview</a><a href="#detection" data-go="detection">Detection</a><a href="#households" data-go="households">Households</a><a href="#method" data-go="method">Method</a></nav>
+</div>
+</header>
+<main style="max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px">
+<section id="overview">
+<h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Area X: consumption review</h1>
+<p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">A constructed study group of residential smart-meter households. Hourly consumption is summed to an area total, compared with its historical pattern, and any excess is attributed to individual houses.</p>
+</section>
+<section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+<div class="fld"><label class="lab" for="ds">Dataset</label><select id="ds"><option>CEEW Smart Meter Data (Mathura, Bareilly)</option></select></div>
+<div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="hs">Houses in Area X</label><input id="hs" value="50"></div>
+<div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="iv">Interval</label><select id="iv"><option>Hourly</option><option>30 minutes</option></select></div>
+<div class="fld"><label class="lab" for="dt">Date to inspect</label><input id="dt" value="[select date]"></div>
+<button style="height:44px;padding:0 28px;background:#1F3A5F;color:#fff;border:0;border-radius:2px;font:500 15px 'Public Sans',sans-serif;cursor:pointer">Run detection</button>
+</section>
+<section style="display:flex;flex-wrap:wrap;gap:20px">
+<div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Houses</div><div style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace">50</div></div>
+<div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Period covered</div><div style="font-size:20px;margin-top:10px;font-family:'IBM Plex Mono',monospace">[start] to [end]</div></div>
+<div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Missing readings</div><div style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace">[n] %</div></div>
+<div class="panel" style="flex:1;min-width:200px;padding:16px 20px"><div class="lab">Anomalies flagged</div><div style="font-size:26px;margin-top:6px;font-family:'IBM Plex Mono',monospace;color:#A63D2F">[n]</div></div>
+</section>
+<section id="detection" style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+<div class="panel" style="flex:2;min-width:420px">
+<div class="ph"><span>Area X Total, actual against expected</span><span style="font-size:12px;font-weight:400;color:#5A6575">Illustrative values</span></div>
+<div style="padding:16px 20px 8px">
+<svg viewBox="0 0 880 290" style="width:100%;height:auto;display:block" role="img" aria-label="Line chart of Area X hourly total in kWh. The actual line rises above the expected line between 19:00 and 21:00.">
+<g stroke="#E3E6EB" stroke-width="1"><line x1="50" y1="240" x2="860" y2="240"/><line x1="50" y1="180" x2="860" y2="180"/><line x1="50" y1="120" x2="860" y2="120"/><line x1="50" y1="60" x2="860" y2="60"/></g>
+<g font-family="IBM Plex Mono,monospace" font-size="11" fill="#5A6575"><text x="40" y="244" text-anchor="end">0</text><text x="40" y="184" text-anchor="end">20</text><text x="40" y="124" text-anchor="end">40</text><text x="40" y="64" text-anchor="end">60</text><text x="6" y="14">kWh</text>
+<text x="50" y="262" text-anchor="middle">00:00</text><text x="153" y="262" text-anchor="middle">03:00</text><text x="256" y="262" text-anchor="middle">06:00</text><text x="359" y="262" text-anchor="middle">09:00</text><text x="462" y="262" text-anchor="middle">12:00</text><text x="565" y="262" text-anchor="middle">15:00</text><text x="667" y="262" text-anchor="middle">18:00</text><text x="770" y="262" text-anchor="middle">21:00</text></g>
+<rect x="702" y="24" width="68" height="216" fill="#A63D2F" fill-opacity="0.08"/>
+<polyline fill="none" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4" points="50,205 84,212 119,216 153,218 187,214 222,200 256,170 290,140 324,130 359,140 393,152 427,158 462,150 496,155 530,160 565,158 599,150 633,128 667,100 702,80 736,78 770,100 805,150 839,185"/>
+<polyline fill="none" stroke="#1B2430" stroke-width="2" points="50,203 84,213 119,215 153,219 187,213 222,202 256,168 290,143 324,128 359,142 393,150 427,160 462,148 496,157 530,158 565,160 599,148 633,126 667,96 702,56 736,40 770,70 805,148 839,187"/>
+<circle cx="736" cy="40" r="5" fill="#A63D2F" stroke="#fff" stroke-width="1.5"/>
+<g font-family="Public Sans,sans-serif" font-size="12"><text x="746" y="34" fill="#A63D2F" font-weight="600">Flagged: 20:00</text></g>
+</svg>
+<div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap">
+<span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span>
+<span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected (historical pattern)</span>
+<span><svg width="14" height="10" aria-hidden="true"><rect width="14" height="10" fill="#A63D2F" fill-opacity="0.15"/></svg> Anomalous interval</span>
+</div>
+</div>
+</div>
+<div class="panel" style="flex:1;min-width:300px">
+<div class="ph"><span>Selected anomaly</span></div>
+<div style="padding:4px 20px 16px">
+<div class="kv"><span>Timestamp</span><span>[date] 20:00</span></div>
+<div class="kv"><span>Actual total</span><span>66.7 kWh</span></div>
+<div class="kv"><span>Expected total</span><span>54.0 kWh</span></div>
+<div class="kv"><span>Increase</span><span style="color:#A63D2F">+12.7 kWh (+23.5%)</span></div>
+<div class="kv" style="border-bottom:0"><span>Anomaly score</span><span>[score]</span></div>
+</div>
+</div>
+</section>
+<section id="households" class="panel">
+<div class="ph"><span>Estimated excess consumption by house</span><span style="font-size:12px;font-weight:400;color:#5A6575">Illustrative values</span></div>
+<div style="overflow-x:auto">
+<table style="width:100%;border-collapse:collapse;min-width:640px">
+<thead><tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>[meter ID]</td><td class="n">4.2</td><td class="n">1.3</td><td class="n">+2.9</td><td class="n">22.8%</td></tr>
+<tr><td>2</td><td>[meter ID]</td><td class="n">3.5</td><td class="n">1.1</td><td class="n">+2.4</td><td class="n">18.9%</td></tr>
+<tr><td>3</td><td>[meter ID]</td><td class="n">3.0</td><td class="n">1.1</td><td class="n">+1.9</td><td class="n">15.0%</td></tr>
+<tr><td>4</td><td>[meter ID]</td><td class="n">2.6</td><td class="n">1.0</td><td class="n">+1.6</td><td class="n">12.6%</td></tr>
+<tr><td style="border-bottom:0">5</td><td style="border-bottom:0">[meter ID]</td><td class="n" style="border-bottom:0">2.3</td><td class="n" style="border-bottom:0">1.0</td><td class="n" style="border-bottom:0">+1.3</td><td class="n" style="border-bottom:0">10.2%</td></tr>
+</tbody></table>
+</div>
+</section>
+<section id="method" class="panel" style="padding:18px 20px;font-size:13.5px;line-height:1.6;color:#44505F">
+<strong style="color:#1B2430;font-weight:600">Notes on interpretation.</strong> Excess consumption is actual minus expected usage for each house. It is a statistical attribution from observed readings and does not establish the cause of an anomaly. Area X is a constructed study group of meters from the source dataset and does not represent a real neighbourhood or feeder. Source: CEEW, Harvard Dataverse, doi:10.7910/DVN/GOCHJH (CC0).
+</section>
+</main>
+</div>
+</section>
+<section class="pg" id="pg-detection" hidden>
+
+<div style="font-family:'Public Sans',sans-serif;color:#1B2430;min-height:100vh">
+<header style="background:#1F3A5F"><div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+<nav class="nav"><a href="#overview" data-go="overview">Overview</a><a href="#detection" data-go="detection" class="on">Detection</a><a href="#households" data-go="households">Households</a><a href="#method" data-go="method">Method</a></nav></div></header>
+<main style="max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px">
+<section><h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Anomaly detection</h1>
+<p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">Compare the Area X hourly total with its historical pattern and flag unusually high intervals.</p></section>
+<section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+<div class="fld"><label class="lab" for="m">Detection model</label><select id="m"><option>Isolation Forest</option><option>Autoencoder</option><option>Forecast residual</option></select></div>
+<div class="fld"><label class="lab" for="b">Baseline</label><select id="b"><option>Hour of day and weekday</option><option>Rolling 4-week mean</option></select></div>
+<div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="t">Score threshold</label><input id="t" value="[threshold]"></div>
+<div class="fld" style="max-width:220px;min-width:150px"><label class="lab" for="w">Training window</label><input id="w" value="[start] to [end]"></div>
+<button class="btn">Run detection</button></section>
+<section class="panel"><div class="ph"><span>Area X Total, seven-day view</span><small>Illustrative values</small></div><div style="padding:16px 20px 8px"><svg viewBox="0 0 1200 305" style="width:100%;height:auto;display:block" role="img" aria-label="Line chart of Area X hourly total over seven days with three flagged intervals"><g stroke="#E3E6EB"><line x1="50" y1="270" x2="1180" y2="270"/><line x1="50" y1="198" x2="1180" y2="198"/><line x1="50" y1="126" x2="1180" y2="126"/><line x1="50" y1="54" x2="1180" y2="54"/></g><line x1="212" y1="20" x2="212" y2="270" stroke="#E3E6EB"/><line x1="375" y1="20" x2="375" y2="270" stroke="#E3E6EB"/><line x1="537" y1="20" x2="537" y2="270" stroke="#E3E6EB"/><line x1="700" y1="20" x2="700" y2="270" stroke="#E3E6EB"/><line x1="862" y1="20" x2="862" y2="270" stroke="#E3E6EB"/><line x1="1024" y1="20" x2="1024" y2="270" stroke="#E3E6EB"/><g font-family="IBM Plex Mono,monospace" font-size="11" fill="#5A6575"><text x="40" y="274" text-anchor="end">0</text><text x="40" y="202" text-anchor="end">20</text><text x="40" y="130" text-anchor="end">40</text><text x="40" y="58" text-anchor="end">60</text><text x="131" y="292" text-anchor="middle">Day 1</text><text x="294" y="292" text-anchor="middle">Day 2</text><text x="456" y="292" text-anchor="middle">Day 3</text><text x="618" y="292" text-anchor="middle">Day 4</text><text x="781" y="292" text-anchor="middle">Day 5</text><text x="943" y="292" text-anchor="middle">Day 6</text><text x="1106" y="292" text-anchor="middle">Day 7</text><text x="6" y="14">kWh</text></g><polyline fill="none" stroke="#1F3A5F" stroke-width="1.4" stroke-dasharray="5 4" points="50,205 57,205 64,205 70,205 77,204 84,199 91,184 97,160 104,148 111,160 118,182 124,191 131,187 138,183 145,188 151,194 158,191 165,171 172,133 179,93 185,76 192,93 199,133 206,171 212,205 219,205 226,205 233,205 239,204 246,199 253,184 260,160 267,148 273,160 280,182 287,191 294,187 300,183 307,188 314,194 321,191 327,171 334,133 341,93 348,76 354,93 361,133 368,171 375,205 382,205 388,205 395,205 402,204 409,199 415,184 422,160 429,148 436,160 442,182 449,191 456,187 463,183 470,188 476,194 483,191 490,171 497,133 503,93 510,76 517,93 524,133 530,171 537,205 544,205 551,205 557,205 564,204 571,199 578,184 585,160 591,148 598,160 605,182 612,191 618,187 625,183 632,188 639,194 645,191 652,171 659,133 666,93 673,76 679,93 686,133 693,171 700,205 706,205 713,205 720,205 727,204 733,199 740,184 747,160 754,148 760,160 767,182 774,191 781,187 788,183 794,188 801,194 808,191 815,171 821,133 828,93 835,76 842,93 848,133 855,171 862,209 869,209 876,209 882,209 889,208 896,203 903,189 909,167 916,155 923,167 930,187 936,196 943,192 950,189 957,193 963,199 970,196 977,177 984,142 991,104 997,87 1004,104 1011,142 1018,177 1024,209 1031,209 1038,209 1045,209 1051,208 1058,203 1065,189 1072,167 1079,155 1085,167 1092,187 1099,196 1106,192 1112,189 1119,193 1126,199 1133,196 1139,177 1146,142 1153,104 1160,87 1166,104 1173,142 1180,177"/><polyline fill="none" stroke="#1B2430" stroke-width="1.6" points="50,201 57,197 64,208 70,214 77,205 84,195 91,186 97,160 104,140 111,159 118,191 124,196 131,182 138,181 145,189 151,190 158,187 165,178 172,141 179,90 185,70 192,95 199,133 206,166 212,209 219,214 226,205 233,197 239,203 246,202 253,181 260,160 267,156 273,163 280,174 287,186 294,191 300,184 307,186 314,199 321,196 327,165 334,125 341,96 348,30 354,62 361,135 368,177 375,203 382,196 388,204 395,212 402,205 409,198 415,188 422,161 429,139 436,155 442,189 449,196 456,185 463,184 470,191 476,189 483,184 490,175 497,142 503,93 510,72 517,96 524,132 530,163 537,206 544,215 551,208 557,200 564,203 571,200 578,179 585,158 591,156 598,166 605,177 612,187 618,189 625,182 632,184 639,199 645,199 652,168 659,126 666,58 673,56 679,90 686,135 693,180 700,206 706,196 713,202 720,209 727,204 733,198 740,190 747,164 754,140 760,153 767,185 774,195 781,186 788,186 794,193 801,190 808,182 815,172 821,140 828,94 835,75 842,98 848,133 855,162 862,206 869,217 876,213 882,206 889,210 896,205 903,182 909,161 916,161 923,174 930,185 936,194 943,195 950,185 957,186 963,202 970,205 977,177 984,136 991,104 997,87 1004,98 1011,141 1018,186 1024,213 1031,203 1038,206 1045,211 1051,205 1058,200 1065,138 1072,140 1079,150 1085,160 1092,188 1099,197 1106,189 1112,192 1119,201 1126,197 1133,186 1139,175 1146,146 1153,103 1160,87 1166,111 1173,144 1180,168"/><circle cx="354" cy="62" r="5" fill="#A63D2F" stroke="#fff" stroke-width="1.5"/><circle cx="673" cy="56" r="5" fill="#A63D2F" stroke="#fff" stroke-width="1.5"/><circle cx="1072" cy="140" r="5" fill="#A63D2F" stroke="#fff" stroke-width="1.5"/></svg><div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap"><span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span><span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected</span><span><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#A63D2F"/></svg> Flagged interval</span></div></div></section>
+<section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+<div class="panel" style="flex:2;min-width:420px"><div class="ph"><span>Flagged intervals</span><small>Illustrative values</small></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:680px"><thead><tr><th>#</th><th>Timestamp</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Increase (kWh)</th><th class="n">Score</th><th>Status</th></tr></thead><tbody><tr><td>1</td><td>[date] 21:00</td><td class="n">57.8</td><td class="n">49.0</td><td class="n"><span style="color:#A63D2F">+8.8</span></td><td class="n">0.78</td><td><span class="tag">Review</span></td></tr><tr><td>2</td><td>[date] 20:00</td><td class="n">59.5</td><td class="n">54.0</td><td class="n"><span style="color:#A63D2F">+5.5</span></td><td class="n">0.83</td><td><span class="tag">Review</span></td></tr><tr><td>3</td><td>[date] 07:00</td><td class="n">36.2</td><td class="n">28.6</td><td class="n"><span style="color:#A63D2F">+7.6</span></td><td class="n">0.88</td><td><span class="tag">Review</span></td></tr></tbody></table></div></div>
+<div class="panel" style="flex:1;min-width:300px"><div class="ph"><span>Detection summary</span></div><div style="padding:4px 20px 12px">
+<div class="kv"><span>Model</span><span>Isolation Forest</span></div><div class="kv"><span>Intervals scanned</span><span>168</span></div><div class="kv"><span>Flagged</span><span>3</span></div><div class="kv"><span>Threshold</span><span>[threshold]</span></div><div class="kv"><span>Labels used</span><span>None</span></div></div></div></section>
+</main>
+</div>
+</section>
+<section class="pg" id="pg-households" hidden>
+
+<div style="font-family:'Public Sans',sans-serif;color:#1B2430;min-height:100vh">
+<header style="background:#1F3A5F"><div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+<nav class="nav"><a href="#overview" data-go="overview">Overview</a><a href="#detection" data-go="detection">Detection</a><a href="#households" data-go="households" class="on">Households</a><a href="#method" data-go="method">Method</a></nav></div></header>
+<main style="max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px">
+<section><h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Household contribution</h1>
+<p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">Rank houses by estimated excess consumption at a flagged interval.</p></section>
+<section class="panel" style="padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+<div class="fld"><label class="lab" for="a">Anomaly</label><select id="a"><option>[date] 20:00 (+12.7 kWh)</option><option>[date] 19:00</option><option>[date] 21:00</option></select></div>
+<div class="fld"><label class="lab" for="r">Rank by</label><select id="r"><option>Excess consumption (kWh)</option><option>Share of excess (%)</option></select></div>
+<div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="n">Show</label><select id="n"><option>Top 10 houses</option><option>Top 20 houses</option><option>All 50 houses</option></select></div>
+<button class="btn">Update</button></section>
+<section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
+<div class="panel" style="flex:1;min-width:380px"><div class="ph"><span>Estimated excess, top 10 houses (kWh)</span><small>Illustrative values</small></div><div style="padding:16px 20px"><svg viewBox="0 0 760 370" style="width:100%;height:auto;display:block" role="img" aria-label="Horizontal bar chart of estimated excess kWh for the ten highest-ranked houses"><line x1="120" y1="10" x2="120" y2="360" stroke="#B8C0CB"/><text x="110" y="34" text-anchor="end" font-size="12" fill="#44505F">Rank 1</text><rect x="120" y="22" width="580" height="18" fill="#A63D2F"/><text x="708" y="35" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+2.9</text><text x="110" y="68" text-anchor="end" font-size="12" fill="#44505F">Rank 2</text><rect x="120" y="56" width="480" height="18" fill="#1F3A5F"/><text x="608" y="69" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+2.4</text><text x="110" y="102" text-anchor="end" font-size="12" fill="#44505F">Rank 3</text><rect x="120" y="90" width="380" height="18" fill="#1F3A5F"/><text x="508" y="103" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+1.9</text><text x="110" y="136" text-anchor="end" font-size="12" fill="#44505F">Rank 4</text><rect x="120" y="124" width="320" height="18" fill="#1F3A5F"/><text x="448" y="137" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+1.6</text><text x="110" y="170" text-anchor="end" font-size="12" fill="#44505F">Rank 5</text><rect x="120" y="158" width="260" height="18" fill="#1F3A5F"/><text x="388" y="171" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+1.3</text><text x="110" y="204" text-anchor="end" font-size="12" fill="#44505F">Rank 6</text><rect x="120" y="192" width="220" height="18" fill="#1F3A5F"/><text x="348" y="205" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+1.1</text><text x="110" y="238" text-anchor="end" font-size="12" fill="#44505F">Rank 7</text><rect x="120" y="226" width="180" height="18" fill="#1F3A5F"/><text x="308" y="239" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+0.9</text><text x="110" y="272" text-anchor="end" font-size="12" fill="#44505F">Rank 8</text><rect x="120" y="260" width="140" height="18" fill="#1F3A5F"/><text x="268" y="273" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+0.7</text><text x="110" y="306" text-anchor="end" font-size="12" fill="#44505F">Rank 9</text><rect x="120" y="294" width="120" height="18" fill="#1F3A5F"/><text x="248" y="307" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+0.6</text><text x="110" y="340" text-anchor="end" font-size="12" fill="#44505F">Rank 10</text><rect x="120" y="328" width="100" height="18" fill="#1F3A5F"/><text x="228" y="341" font-family="IBM Plex Mono,monospace" font-size="12" fill="#1B2430">+0.5</text><text x="120" y="366" font-size="11" fill="#5A6575" font-family="Public Sans,sans-serif" dy="-2"></text></svg></div></div>
+<div class="panel" style="flex:1;min-width:380px"><div class="ph"><span>Selected house: rank 1</span><small>Illustrative values</small></div><div style="padding:16px 20px 4px"><svg viewBox="0 0 600 175" style="width:100%;height:auto;display:block" role="img" aria-label="Selected house actual and expected consumption over 24 hours"><line x1="20" y1="150" x2="580" y2="150" stroke="#D3D8DF"/><polyline fill="none" stroke="#1F3A5F" stroke-width="1.4" stroke-dasharray="5 4" points="20,122 44,122 69,122 93,122 117,122 142,121 166,117 190,111 215,108 239,111 263,117 288,121 312,122 337,122 361,122 385,121 410,120 434,115 458,107 483,98 507,94 531,98 556,107 580,115"/><polyline fill="none" stroke="#1B2430" stroke-width="1.8" points="20,122 44,120 69,124 93,122 117,120 142,122 166,117 190,109 215,110 239,111 263,115 288,122 312,122 337,120 361,124 385,121 410,118 434,117 458,107 483,66 507,15 531,64 556,106 580,117"/><circle cx="507" cy="15" r="4.5" fill="#A63D2F"/><g font-family="IBM Plex Mono,monospace" font-size="11" fill="#5A6575"><text x="20" y="168">00:00</text><text x="300" y="168" text-anchor="middle">12:00</text><text x="580" y="168" text-anchor="end">23:00</text></g></svg>
+<div class="kv"><span>Meter ID</span><span>[meter ID]</span></div><div class="kv"><span>Actual at flagged hour</span><span>4.2 kWh</span></div><div class="kv"><span>Expected at flagged hour</span><span>1.3 kWh</span></div><div class="kv"><span>Baseline source</span><span>Own history</span></div></div></div></section>
+<section class="panel"><div class="ph"><span>All ranked houses</span><small>Excess = actual minus expected</small></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:640px"><thead><tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr></thead><tbody><tr><td>1</td><td>[meter ID]</td><td class="n">4.2</td><td class="n">1.3</td><td class="n">+2.9</td><td class="n">22.8%</td></tr><tr><td>2</td><td>[meter ID]</td><td class="n">3.5</td><td class="n">1.1</td><td class="n">+2.4</td><td class="n">18.9%</td></tr><tr><td>3</td><td>[meter ID]</td><td class="n">3.0</td><td class="n">1.1</td><td class="n">+1.9</td><td class="n">15.0%</td></tr><tr><td>4</td><td>[meter ID]</td><td class="n">2.6</td><td class="n">1.0</td><td class="n">+1.6</td><td class="n">12.6%</td></tr><tr><td>5</td><td>[meter ID]</td><td class="n">2.3</td><td class="n">1.0</td><td class="n">+1.3</td><td class="n">10.2%</td></tr><tr><td>6</td><td>[meter ID]</td><td class="n">2.0</td><td class="n">0.9</td><td class="n">+1.1</td><td class="n">8.7%</td></tr><tr><td>7</td><td>[meter ID]</td><td class="n">1.8</td><td class="n">0.9</td><td class="n">+0.9</td><td class="n">7.1%</td></tr><tr><td>8</td><td>[meter ID]</td><td class="n">1.5</td><td class="n">0.8</td><td class="n">+0.7</td><td class="n">5.5%</td></tr><tr><td>9</td><td>[meter ID]</td><td class="n">1.4</td><td class="n">0.8</td><td class="n">+0.6</td><td class="n">4.7%</td></tr><tr><td>10</td><td>[meter ID]</td><td class="n">1.3</td><td class="n">0.8</td><td class="n">+0.5</td><td class="n">3.9%</td></tr></tbody></table></div></section>
+</main>
+</div>
+</section>
+<section class="pg" id="pg-method" hidden>
+
+<div style="font-family:'Public Sans',sans-serif;color:#1B2430;min-height:100vh">
+<header style="background:#1F3A5F"><div style="max-width:1240px;margin:0 auto;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div style="font-size:18px;font-weight:600;color:#fff">Energy Consumption Anomaly Detector</div>
+<nav class="nav"><a href="#overview" data-go="overview">Overview</a><a href="#detection" data-go="detection">Detection</a><a href="#households" data-go="households">Households</a><a href="#method" data-go="method" class="on">Method</a></nav></div></header>
+<main style="max-width:1240px;margin:0 auto;padding:28px 24px 48px;display:flex;flex-direction:column;gap:20px">
+<section><h1 style="margin:0 0 6px;font-size:26px;font-weight:600">Method and data notes</h1>
+<p style="margin:0;font-size:15px;color:#5A6575;max-width:760px;line-height:1.55">How the dataset is prepared, how the model works and what the results do and do not show.</p></section>
+<section style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+<div class="panel" style="flex:3;min-width:420px"><div class="ph"><span>Pipeline</span></div><ol style="list-style:none;margin:0;padding:0 20px"><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">01</span><span><strong style="font-weight:600">Prepare data</strong><br><span class="note">Load the household time series, check units and timestamps, handle missing readings and select a consistent group of houses.</span></span></li><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">02</span><span><strong style="font-weight:600">Standardise intervals</strong><br><span class="note">Use hourly readings. For finer data, confirm what each reading represents before aggregating.</span></span></li><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">03</span><span><strong style="font-weight:600">Calculate area consumption</strong><br><span class="note">Sum the selected houses at each timestamp to form the Area X Total series.</span></span></li><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">04</span><span><strong style="font-weight:600">Detect anomalies</strong><br><span class="note">Compare the area total with historical patterns using an unsupervised detector.</span></span></li><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">05</span><span><strong style="font-weight:600">Identify contributors</strong><br><span class="note">Estimate each house's expected use from its own history, then rank the largest positive deviations.</span></span></li><li style="display:flex;gap:16px;padding:14px 0;border-bottom:1px solid #E6E9EE"><span style="font-family:'IBM Plex Mono',monospace;color:#1F3A5F;font-weight:500;width:24px">06</span><span><strong style="font-weight:600">Report results</strong><br><span class="note">Show the anomaly timestamp, actual and expected totals, the increase and the leading houses.</span></span></li></ol></div>
+<div style="flex:2;min-width:320px;display:flex;flex-direction:column;gap:20px">
+<div class="panel"><div class="ph"><span>Dataset</span></div><div style="padding:4px 20px 12px">
+<div class="kv"><span>Title</span><span>CEEW Smart Meter Data</span></div><div class="kv"><span>Region</span><span>Mathura, Bareilly</span></div><div class="kv"><span>Reading interval</span><span>3 minutes</span></div><div class="kv"><span>Energy column</span><span>t_kWh</span></div><div class="kv"><span>Houses used</span><span>50</span></div><div class="kv"><span>Licence</span><span>CC0</span></div><div class="kv"><span>DOI</span><span>10.7910/DVN/GOCHJH</span></div></div></div>
+<div class="panel"><div class="ph"><span>Unit handling</span></div><div style="padding:0 20px 8px"><div class="kv" style="flex-direction:column;gap:4px"><span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Interval energy (kWh or Wh)</span><span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Sum across the interval. Confirm each value covers the preceding interval.</span></div><div class="kv" style="flex-direction:column;gap:4px"><span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Cumulative meter reading</span><span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Take differences between consecutive readings. Handle resets and negative differences.</span></div><div class="kv" style="flex-direction:column;gap:4px"><span style="font-family:'Public Sans',sans-serif;font-weight:600;text-align:left">Instantaneous power (kW)</span><span class="note" style="font-family:'Public Sans',sans-serif;text-align:left">Do not sum as energy. Convert using the sampling interval.</span></div></div></div></div></section>
+<section class="panel" style="padding:18px 20px"><strong style="font-weight:600">Limitations.</strong><ul class="note" style="margin:8px 0 0;padding-left:20px"><li>Area X is a constructed study group and does not represent a real neighbourhood, transformer area or feeder.</li><li>Household excess is a statistical attribution from observed readings and does not prove the cause of an anomaly.</li><li>The model does not claim to detect theft or faulty equipment.</li><li>Power cuts appear as zero readings and are handled separately from anomalies.</li></ul></section>
+</main>
+</div>
+</section>
+<script>
+(function(){
+  var ids=['overview','detection','households','method'];
+  function show(){
+    var h=(location.hash||'#overview').slice(1);
+    if(ids.indexOf(h)<0)h='overview';
+    ids.forEach(function(i){document.getElementById('pg-'+i).hidden=(i!==h);});
+    window.scrollTo(0,0);
+  }
+  window.addEventListener('hashchange',show);
+  show();
+})();
+</script>
+</body>
+</html>
