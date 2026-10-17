@@ -92,7 +92,16 @@
   </section>
 
   <section class="panel">
-    <div class="ph"><span>Estimated excess consumption by house</span><small id="ov-top-houses-date">Selected date</small></div>
+    <div class="ph">
+      <span>Estimated excess consumption by house</span>
+      <div style="display:flex;gap:12px;align-items:center">
+        <small id="ov-top-houses-date">Selected date</small>
+        <button class="btn sm secondary" id="ov-download-btn" title="Download anomaly report as CSV" style="display:inline-flex;align-items:center;gap:4px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Report (CSV)
+        </button>
+      </div>
+    </div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:640px" id="ov-top-houses-table">
         <thead><tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr></thead>
@@ -177,7 +186,16 @@
 
   <section style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch">
     <div class="panel" style="flex:2;min-width:420px">
-      <div class="ph"><span>Flagged intervals</span><small id="det-flagged-count">0 flagged</small></div>
+      <div class="ph">
+        <span>Flagged intervals</span>
+        <div style="display:flex;gap:12px;align-items:center">
+          <small id="det-flagged-count">0 flagged</small>
+          <button class="btn sm secondary" id="det-download-btn" title="Download detection report as CSV" style="display:inline-flex;align-items:center;gap:4px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Report (CSV)
+          </button>
+        </div>
+      </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:680px" id="det-table">
           <thead>
@@ -248,7 +266,16 @@
   </section>
 
   <section class="panel">
-    <div class="ph"><span>All ranked houses</span><small>Excess = actual minus expected. Share is % of total positive excess.</small></div>
+    <div class="ph">
+      <span>All ranked houses</span>
+      <div style="display:flex;gap:12px;align-items:center">
+        <small>Excess = actual minus expected. Share is % of total positive excess.</small>
+        <button class="btn sm secondary" id="hh-download-btn" title="Download household attribution as CSV" style="display:inline-flex;align-items:center;gap:4px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Attribution (CSV)
+        </button>
+      </div>
+    </div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;min-width:640px" id="hh-table">
         <thead>

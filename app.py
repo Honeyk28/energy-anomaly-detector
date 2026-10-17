@@ -1,6 +1,8 @@
 import os
 import secrets
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+import csv
+import io
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, Response
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
@@ -188,6 +190,136 @@ def api_method():
     try:
         data = engine.get_method_stats()
         return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+# REPORT EXPORT ROUTES
+# ==========================================
+
+@app.route('/api/export/detection')
+@login_required
+def api_export_detection():
+    try:
+        model = request.args.get('model', 'Isolation Forest')
+        threshold = request.args.get('threshold')
+        baseline = request.args.get('baseline', 'Centered 29-day median')
+        train_from = request.args.get('train_from')
+        train_to = request.args.get('train_to')
+        from_date = request.args.get('from')
+        to_date = request.args.get('to')
+
+        data = engine.detect(
+            model=model,
+            threshold=threshold,
+            baseline=baseline,
+            train_from=train_from,
+            train_to=train_to,
+            from_date=from_date,
+            to_date=to_date
+        )
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Metadata Header
+        writer.writerow(['# ========================================'])
+        writer.writerow(['# AI ENERGY CONSUMPTION ANOMALY DETECTION REPORT'])
+        writer.writerow(['# ========================================'])
+        writer.writerow(['# Model', data['summary']['model']])
+        writer.writerow(['# Baseline Strategy', baseline])
+        writer.writerow(['# Threshold', data['summary']['threshold']])
+        writer.writerow(['# Total Scanned Days', data['summary']['scanned']])
+        writer.writerow(['# Low Coverage Days Excluded (<15 houses)', data['summary']['low_coverage_days']])
+        writer.writerow(['# Flagged Anomaly Days', data['summary']['flagged']])
+        writer.writerow([])
+        
+        # Flagged anomalies table
+        writer.writerow(['[FLAGGED ANOMALIES]'])
+        writer.writerow(['Date', 'Actual_Total_kWh', 'Expected_Total_kWh', 'Increase_kWh', 'Pct_Increase', 'Anomaly_Score'])
+        for a in data.get('anomalies', []):
+            writer.writerow([
+                a['date'],
+                a['actual_total'],
+                a['expected_total'],
+                a['increase'],
+                f"{a['pct']}%",
+                a['score']
+            ])
+        writer.writerow([])
+
+        # Complete daily time series
+        writer.writerow(['[DAILY TIME SERIES OBSERVATIONS]'])
+        writer.writerow(['Date', 'Actual_Total_kWh', 'Expected_Total_kWh', 'Comparable_Houses', 'Flagged_Anomaly', 'Low_Coverage'])
+        for s in data.get('series', []):
+            writer.writerow([
+                s['date'],
+                s['actual_total'],
+                s['expected_total'],
+                s['comparable_count'],
+                'YES' if s['flagged'] else 'NO',
+                'YES' if s['low_coverage'] else 'NO'
+            ])
+
+        output.seek(0)
+        clean_model_name = data['summary']['model'].replace(' ', '_').lower()
+        filename = f"energy_anomaly_report_{clean_model_name}.csv"
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/export/households')
+@login_required
+def api_export_households():
+    try:
+        date = request.args.get('date')
+        baseline = request.args.get('baseline', 'Centered 29-day median')
+        rank_by = request.args.get('rank_by', 'excess')
+        top = request.args.get('top', 'all')
+
+        if not date:
+            date = engine.all_dates[0]
+
+        rows = engine.get_households(date=date, baseline=baseline, rank_by=rank_by, top=top)
+        rec = engine.get_attribution_reconciliation(date, baseline=baseline)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(['# ========================================'])
+        writer.writerow(['# HOUSEHOLD CONSUMPTION ATTRIBUTION REPORT'])
+        writer.writerow(['# ========================================'])
+        writer.writerow(['# Target Date', date])
+        writer.writerow(['# Baseline Strategy', baseline])
+        writer.writerow(['# Comparable Houses Reporting', rec['comparable_houses']])
+        writer.writerow(['# Net Area Increase (kWh)', rec['net_area_increase']])
+        writer.writerow(['# Total Positive Excess Sum (kWh)', rec['positive_excess_sum']])
+        writer.writerow(['# Total Negative Deviations Sum (kWh)', rec['negative_deviation_sum']])
+        writer.writerow(['# Reconciliation Status', 'Exact Match' if rec['reconciled'] else 'Approximate'])
+        writer.writerow([])
+        writer.writerow(['Rank', 'Meter_ID', 'Actual_kWh', 'Expected_kWh', 'Excess_kWh', 'Share_Of_Positive_Excess_Pct'])
+        for r in rows:
+            writer.writerow([
+                r['rank'],
+                r['meter'],
+                r['actual'],
+                r['expected'],
+                r['excess'],
+                f"{r['share']}%"
+            ])
+
+        output.seek(0)
+        filename = f"household_attribution_{date}.csv"
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

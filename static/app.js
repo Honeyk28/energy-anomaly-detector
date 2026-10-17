@@ -962,6 +962,56 @@
         updateHouseholdsView();
       });
     }
+
+    // Download Report Handlers
+    const ovDownloadBtn = document.getElementById('ov-download-btn');
+    if (ovDownloadBtn) {
+      ovDownloadBtn.addEventListener('click', () => {
+        if (!overviewRan) {
+          alert("Please click 'Run detection' first to generate analysis data.");
+          return;
+        }
+        window.location.href = '/api/export/detection?model=Isolation+Forest&baseline=Centered+29-day+median&threshold=2.0';
+      });
+    }
+
+    const detDownloadBtn = document.getElementById('det-download-btn');
+    if (detDownloadBtn) {
+      detDownloadBtn.addEventListener('click', () => {
+        if (!detectionRan) {
+          alert("Please click 'Run detection' first to generate analysis data.");
+          return;
+        }
+        const model = document.getElementById('det-model').value;
+        const baseline = document.getElementById('det-baseline').value;
+        const threshold = document.getElementById('det-threshold').value;
+        const trainFrom = document.getElementById('det-train-from').value;
+        const trainTo = document.getElementById('det-train-to').value;
+        const viewFrom = document.getElementById('det-view-from').value;
+        const viewTo = document.getElementById('det-view-to').value;
+
+        const query = new URLSearchParams({
+          model: model,
+          baseline: baseline,
+          threshold: threshold,
+          train_from: trainFrom,
+          train_to: trainTo,
+          from: viewFrom,
+          to: viewTo
+        });
+        window.location.href = `/api/export/detection?${query.toString()}`;
+      });
+    }
+
+    const hhDownloadBtn = document.getElementById('hh-download-btn');
+    if (hhDownloadBtn) {
+      hhDownloadBtn.addEventListener('click', () => {
+        const dateSelect = document.getElementById('hh-anomaly-select');
+        const date = (dateSelect && dateSelect.value) ? dateSelect.value : (selectedAnomalyDate || '2019-09-11');
+        const rankBy = document.getElementById('hh-rank-by').value;
+        window.location.href = `/api/export/households?date=${encodeURIComponent(date)}&rank_by=${encodeURIComponent(rankBy)}&top=all`;
+      });
+    }
   });
 
 })();
