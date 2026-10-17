@@ -8,6 +8,8 @@
   let currentHouseholdsData = null;
   let selectedAnomalyDate = null;
   let selectedHouseMeter = null;
+  let overviewRan = false;
+  let detectionRan = false;
 
   // Navigation
   const pageIds = ['overview', 'detection', 'households', 'method', 'access'];
@@ -32,11 +34,25 @@
       window.scrollTo(0, 0);
 
       // Trigger page load
-      if (hash === 'overview') loadOverview();
-      else if (hash === 'detection') loadDetection();
-      else if (hash === 'households') loadHouseholds();
-      else if (hash === 'method') loadMethod();
-      else if (hash === 'access') loadAccess();
+      if (hash === 'overview') {
+        if (overviewRan && currentOverviewData) {
+          renderOverviewChartAndPanels(currentOverviewData);
+        } else {
+          renderOverviewEmptyState();
+        }
+      } else if (hash === 'detection') {
+        if (detectionRan && currentDetectionData) {
+          renderDetectionChartAndPanels(currentDetectionData);
+        } else {
+          renderDetectionEmptyState();
+        }
+      } else if (hash === 'households') {
+        loadHouseholds();
+      } else if (hash === 'method') {
+        loadMethod();
+      } else if (hash === 'access') {
+        loadAccess();
+      }
     }
 
     window.addEventListener('hashchange', showPage);
@@ -65,10 +81,31 @@
   // ==========================================
   // PAGE 1: OVERVIEW
   // ==========================================
-  async function loadOverview() {
-    const data = await apiFetch('/api/overview');
+  function renderOverviewEmptyState() {
+    const chartContainer = document.getElementById('ov-chart-container');
+    if (chartContainer) {
+      chartContainer.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:290px;color:#5A6575;gap:12px;background:#FBFBFC;border:1px dashed #D3D8E0;border-radius:3px">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8C97A7" stroke-width="1.6" aria-hidden="true">
+            <path d="M3 3v18h18"/><path d="M7 16l4-4 4 2 5-6"/>
+          </svg>
+          <div style="font-size:14px;color:#1B2430;font-weight:600">Consumption graph not loaded</div>
+          <div style="font-size:13px;color:#5A6575">Click <strong>&ldquo;Run detection&rdquo;</strong> above to analyze consumption and display the graph.</div>
+        </div>
+      `;
+    }
+    const dtSelect = document.getElementById('ov-dt');
+    if (dtSelect && dtSelect.options.length <= 1) {
+      dtSelect.innerHTML = '<option value="">Click "Run detection" to inspect</option>';
+    }
+    const tbody = document.querySelector('#ov-top-houses-table tbody');
+    if (tbody && !overviewRan) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#5A6575;padding:24px">Click &ldquo;Run detection&rdquo; above to view household attribution</td></tr>';
+    }
+  }
+
+  function renderOverviewChartAndPanels(data) {
     if (!data) return;
-    currentOverviewData = data;
 
     // Update KPIs
     document.getElementById('kpi-houses').textContent = data.kpis.houses;
@@ -105,6 +142,14 @@
         loadOverviewHousesForDate(found.date);
       }
     });
+  }
+
+  async function loadOverview() {
+    const data = await apiFetch('/api/overview');
+    if (!data) return;
+    currentOverviewData = data;
+    overviewRan = true;
+    renderOverviewChartAndPanels(data);
   }
 
   function updateOverviewSelectedPanel(a) {
@@ -169,37 +214,58 @@
       }
     });
 
-    document.getElementById('det-run-btn').addEventListener('click', () => {
-      loadDetection();
+    document.getElementById('det-run-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('det-run-btn');
+      const origText = btn.textContent;
+      btn.textContent = 'Running...';
+      btn.disabled = true;
+      try {
+        await loadDetection();
+        detectionRan = true;
+      } finally {
+        btn.textContent = origText;
+        btn.disabled = false;
+      }
     });
 
-    document.getElementById('det-apply-range-btn').addEventListener('click', () => {
-      loadDetection();
+    document.getElementById('det-apply-range-btn').addEventListener('click', async () => {
+      if (detectionRan) {
+        await loadDetection();
+      }
     });
   }
 
-  async function loadDetection() {
-    const model = document.getElementById('det-model').value;
-    const baseline = document.getElementById('det-baseline').value;
-    const threshold = document.getElementById('det-threshold').value;
-    const trainFrom = document.getElementById('det-train-from').value;
-    const trainTo = document.getElementById('det-train-to').value;
-    const viewFrom = document.getElementById('det-view-from').value;
-    const viewTo = document.getElementById('det-view-to').value;
+  function renderDetectionEmptyState() {
+    const chartContainer = document.getElementById('det-chart-container');
+    if (chartContainer) {
+      chartContainer.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:305px;color:#5A6575;gap:12px;background:#FBFBFC;border:1px dashed #D3D8E0;border-radius:3px">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8C97A7" stroke-width="1.6" aria-hidden="true">
+            <path d="M3 3v18h18"/><path d="M7 16l4-4 4 2 5-6"/>
+          </svg>
+          <div style="font-size:14px;color:#1B2430;font-weight:600">Model not executed yet</div>
+          <div style="font-size:13px;color:#5A6575">Configure parameters and click <strong>&ldquo;Run detection&rdquo;</strong> above to generate the chart.</div>
+        </div>
+      `;
+    }
+    const tbody = document.querySelector('#det-table tbody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#5A6575;padding:24px">Click &ldquo;Run detection&rdquo; above to scan intervals</td></tr>';
+    }
+    const scannedEl = document.getElementById('det-sum-scanned');
+    if (scannedEl) scannedEl.textContent = '--';
+    const flaggedEl = document.getElementById('det-sum-flagged');
+    if (flaggedEl) flaggedEl.textContent = '--';
+    const threshEl = document.getElementById('det-sum-threshold');
+    if (threshEl) threshEl.textContent = '--';
+    const lowcovEl = document.getElementById('det-sum-lowcov');
+    if (lowcovEl) lowcovEl.textContent = '--';
+    const countEl = document.getElementById('det-flagged-count');
+    if (countEl) countEl.textContent = '0 flagged';
+  }
 
-    const query = new URLSearchParams({
-      model: model,
-      baseline: baseline,
-      threshold: threshold,
-      train_from: trainFrom,
-      train_to: trainTo,
-      from: viewFrom,
-      to: viewTo
-    });
-
-    const data = await apiFetch(`/api/detect?${query.toString()}`);
+  function renderDetectionChartAndPanels(data) {
     if (!data) return;
-    currentDetectionData = data;
 
     // Summary panel
     document.getElementById('det-sum-model').textContent = data.summary.model;
@@ -240,6 +306,32 @@
         location.hash = '#households';
       });
     });
+  }
+
+  async function loadDetection() {
+    const model = document.getElementById('det-model').value;
+    const baseline = document.getElementById('det-baseline').value;
+    const threshold = document.getElementById('det-threshold').value;
+    const trainFrom = document.getElementById('det-train-from').value;
+    const trainTo = document.getElementById('det-train-to').value;
+    const viewFrom = document.getElementById('det-view-from').value;
+    const viewTo = document.getElementById('det-view-to').value;
+
+    const query = new URLSearchParams({
+      model: model,
+      baseline: baseline,
+      threshold: threshold,
+      train_from: trainFrom,
+      train_to: trainTo,
+      from: viewFrom,
+      to: viewTo
+    });
+
+    const data = await apiFetch(`/api/detect?${query.toString()}`);
+    if (!data) return;
+    currentDetectionData = data;
+    detectionRan = true;
+    renderDetectionChartAndPanels(data);
   }
 
   // ==========================================
@@ -834,8 +926,17 @@
     // Overview controls
     const ovRunBtn = document.getElementById('ov-run-btn');
     if (ovRunBtn) {
-      ovRunBtn.addEventListener('click', () => {
-        loadOverview();
+      ovRunBtn.addEventListener('click', async () => {
+        const origText = ovRunBtn.textContent;
+        ovRunBtn.textContent = 'Running...';
+        ovRunBtn.disabled = true;
+        try {
+          await loadOverview();
+          overviewRan = true;
+        } finally {
+          ovRunBtn.textContent = origText;
+          ovRunBtn.disabled = false;
+        }
       });
     }
 

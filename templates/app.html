@@ -43,7 +43,7 @@
     <div class="fld"><label class="lab" for="ov-ds">Dataset</label><select id="ov-ds"><option>CEEW Smart Meter Data (Mathura, Bareilly)</option></select></div>
     <div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="ov-hs">Houses in Area X</label><input id="ov-hs" value="38" readonly></div>
     <div class="fld" style="max-width:200px;min-width:140px"><label class="lab" for="ov-iv">Interval</label><select id="ov-iv"><option>Daily</option></select></div>
-    <div class="fld"><label class="lab" for="ov-dt">Date to inspect</label><select id="ov-dt"></select></div>
+    <div class="fld"><label class="lab" for="ov-dt">Date to inspect</label><select id="ov-dt"><option value="">Click "Run detection" to inspect</option></select></div>
     <button class="btn" id="ov-run-btn">Run detection</button>
   </section>
 
@@ -58,7 +58,15 @@
     <div class="panel" style="flex:2;min-width:420px">
       <div class="ph"><span>Area X Total, daily consumption, actual against expected</span></div>
       <div style="padding:16px 20px 8px">
-        <div id="ov-chart-container" style="min-height:290px"></div>
+        <div id="ov-chart-container" style="min-height:290px">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:290px;color:#5A6575;gap:12px;background:#FBFBFC;border:1px dashed #D3D8E0;border-radius:3px">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8C97A7" stroke-width="1.6" aria-hidden="true">
+              <path d="M3 3v18h18"/><path d="M7 16l4-4 4 2 5-6"/>
+            </svg>
+            <div style="font-size:14px;color:#1B2430;font-weight:600">Consumption graph not loaded</div>
+            <div style="font-size:13px;color:#5A6575">Click <strong>&ldquo;Run detection&rdquo;</strong> above to analyze consumption and display the graph.</div>
+          </div>
+        </div>
         <div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap">
           <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span>
           <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected (historical pattern)</span>
@@ -89,7 +97,7 @@
       <table style="width:100%;border-collapse:collapse;min-width:640px" id="ov-top-houses-table">
         <thead><tr><th>Rank</th><th>Meter ID</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Excess (kWh)</th><th class="n">Share of excess</th></tr></thead>
         <tbody>
-          <tr><td colspan="6" style="text-align:center;color:#5A6575">Loading house attribution...</td></tr>
+          <tr><td colspan="6" style="text-align:center;color:#5A6575;padding:24px">Click &ldquo;Run detection&rdquo; above to view household attribution</td></tr>
         </tbody>
       </table>
     </div>
@@ -149,7 +157,15 @@
       </div>
     </div>
     <div style="padding:16px 20px 8px">
-      <div id="det-chart-container" style="min-height:305px"></div>
+      <div id="det-chart-container" style="min-height:305px">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:305px;color:#5A6575;gap:12px;background:#FBFBFC;border:1px dashed #D3D8E0;border-radius:3px">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8C97A7" stroke-width="1.6" aria-hidden="true">
+              <path d="M3 3v18h18"/><path d="M7 16l4-4 4 2 5-6"/>
+            </svg>
+            <div style="font-size:14px;color:#1B2430;font-weight:600">Model not executed yet</div>
+            <div style="font-size:13px;color:#5A6575">Configure parameters and click <strong>&ldquo;Run detection&rdquo;</strong> above to generate the chart.</div>
+          </div>
+        </div>
       <div style="display:flex;gap:24px;font-size:13px;color:#5A6575;padding:4px 0 8px 50px;flex-wrap:wrap">
         <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1B2430" stroke-width="2"/></svg> Actual</span>
         <span><svg width="26" height="8" aria-hidden="true"><line x1="0" y1="4" x2="26" y2="4" stroke="#1F3A5F" stroke-width="1.6" stroke-dasharray="5 4"/></svg> Expected</span>
@@ -168,7 +184,7 @@
             <tr><th>#</th><th>Date</th><th class="n">Actual (kWh)</th><th class="n">Expected (kWh)</th><th class="n">Increase (kWh)</th><th class="n">Score</th><th>Action</th></tr>
           </thead>
           <tbody>
-            <tr><td colspan="7" style="text-align:center;color:#5A6575">Running detection...</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:#5A6575;padding:24px">Click &ldquo;Run detection&rdquo; above to scan intervals</td></tr>
           </tbody>
         </table>
       </div>
